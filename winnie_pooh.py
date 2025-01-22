@@ -29,7 +29,7 @@ def start_ssh_server():
                 client_socket.sendall(b'SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n')
                 data = client_socket.recv(1024).decode('utf-8', errors='ignore')
                 log.info(f'Client {client_ip} sent: {data}')
-                ssh_socket.close()
+                client_socket.close()
     except Exception as e:
         log.error(f'SSH server error: {e}')
         return False
