@@ -7,24 +7,25 @@ import datetime
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
 app = Flask(__name__)
 
 client = MongoClient('mongodb://localhost:27069/')
 db = client.honeypot_logs
 
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-
+# MongoDB (logging)
 def log_to_mongodb(service, client_ip, data):
-    log_entry = {
-        'service': service,
-        'timestamp': datetime.datetime.now(),
-        'client_ip': client_ip,
-        'data': data
-    }
-    db.logs.insert_one(log_entry)
-    log.info(f'Logged to MongoDB: {log_entry}')
+    try:
+        log_entry = {
+            'service': service,
+            'timestamp': datetime.datetime.now(),
+            'client_ip': client_ip,
+            'data': data
+        }
+        db.logs.insert_one(log_entry)
+        log.info(f'Logged to MongoDB: {log_entry}')
+    except Exception as e:
+        log.error(f'Error logging to MongoDB: {e}')
 
 # SSH
 def start_ssh_server():
@@ -48,6 +49,24 @@ def start_ssh_server():
                 client_socket.close()
     except Exception as e:
         log.error(f'SSH server error: {e}')
+    
+@app.route('/')
+def http_pot():
+    client_ip = request.remote_addr
+    log.info(f'Client {client_ip} connected to HTTP pot')
+    log_to_mongodb('http', client_ip, {"path": request.path, "headers": dict(request.headers)})
+    return 'Under construction!', 200
+
+def start_http_server():
+    host = '0.0.0.0'
+    port = 8080
+
+    try:
+        app.run(host=host, port=port)
+        log.info(f'HTTP server is running on {host}:{port}')
+    except Exception as e:
+        log.error(f'HTTP server error: {e}')
+
 
 if __name__ == '__main__':
     log.info(msg='Starting the Honeypot')
