@@ -1,3 +1,4 @@
+import threading
 from flask import Flask, request
 from pymongo import MongoClient
 import logging
@@ -54,13 +55,13 @@ def start_ssh_server():
 def http_pot():
     client_ip = request.remote_addr
     log.info(f'Client {client_ip} connected to HTTP pot')
-    log_to_mongodb('http', client_ip, {"path": request.path, "headers": dict(request.headers)})
+    log_to_mongodb('http', client_ip, {"path": request.path, "headers": dict(request.headers), "args": dict(request.args)})
     return 'Under construction!', 200
 
 def start_http_server():
     host = '0.0.0.0'
     port = 8080
-
+    log.info(f'Starting HTTP server')
     try:
         app.run(host=host, port=port)
         log.info(f'HTTP server is running on {host}:{port}')
@@ -70,4 +71,11 @@ def start_http_server():
 
 if __name__ == '__main__':
     log.info(msg='Starting the Honeypot')
-    start_ssh_server()
+    http_thread = threading.Thread(target=start_http_server, daemon=True)
+    ssh_thread = threading.Thread(target=start_ssh_server, daemon=True)
+
+    http_thread.start()
+    ssh_thread.start()
+
+    http_thread.join()
+    ssh_thread.join()
