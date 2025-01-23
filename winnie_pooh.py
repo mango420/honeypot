@@ -1,6 +1,9 @@
 import threading
 from flask import Flask, request
 from pymongo import MongoClient
+from pyftpdlib.servers import FTPServer
+from pyftpdlib.handlers import FTPHandler
+from pyftpdlib.authorizers import DummyAuthorizer
 import logging
 import socket
 import datetime
@@ -50,7 +53,8 @@ def start_ssh_server():
                 client_socket.close()
     except Exception as e:
         log.error(f'SSH server error: {e}')
-    
+
+# HTTP  
 @app.route('/')
 def http_pot():
     client_ip = request.remote_addr
@@ -68,14 +72,47 @@ def start_http_server():
     except Exception as e:
         log.error(f'HTTP server error: {e}')
 
+# FTP
+def start_ftp_server():
+    authorizer = DummyAuthorizer()
+    log.info(f'Starting FTP server')
+    
+    authorizer.add_user("user", "password", "/tmp", perm="elradfmw")
+    authorizer.add_anonymous("/tmp", perm="elradfmw")
+    
+    handler = FTPHandler
+    handler.authorizer = authorizer
+    
+    def log_ftp_activity(event_handler):
+        client_ip = event_handler.remote_ip
+        data = {
+            'command': event_handler.command,
+            'argument': event_handler.command_arg,
+            'details': event_handler.ftpcmd
+        }
+        log_to_mongodb("ftp", client_ip, data)
+    
+    handler.on_file_sent = log_ftp_activity
+    handler.on_file_received = log_ftp_activity
+    handler.on_incomplete_file_sent = log_ftp_activity
+    handler.on_incomplete_file_received = log_ftp_activity
+    handler.on_login = lambda event_handler: log.info(f"Login from {event_handler.remote_ip}")
+    handler.on_disconnect = lambda event_handler: log.info(f"Disconnected: {event_handler.remote_ip}")
+    
+    server = FTPServer(("0.0.0.0", 2121), handler)
+    log.info("FTP server is running on port 2121")
+    server.serve_forever()
 
 if __name__ == '__main__':
     log.info(msg='Starting the Honeypot')
     http_thread = threading.Thread(target=start_http_server, daemon=True)
     ssh_thread = threading.Thread(target=start_ssh_server, daemon=True)
+    ftp_thread = threading.Thread(target=start_ftp_server, daemon=True)
 
     http_thread.start()
     ssh_thread.start()
+    ftp_thread.start()
 
     http_thread.join()
     ssh_thread.join()
+    ftp_thread.join()
