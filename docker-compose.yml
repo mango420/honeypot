@@ -4,17 +4,20 @@ services:
   honeypot:
     build:
       context: .
+    container_name: honeypot
     ports:
       - "8080:8080"  # HTTP
       - "2222:2222"  # SSH
       - "2121:2121"  # FTP
     depends_on:
       - mongodb
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
     restart: always
 
   mongodb:
     image: mongo:latest
-    container_name: mongodb-honeypot
+    container_name: mongodb
     ports:
       - "27069:27017"
     volumes:
